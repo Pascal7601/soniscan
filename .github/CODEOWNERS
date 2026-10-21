@@ -1,0 +1,6 @@
+# Security-critical paths require review from a designated owner.
+/backend/scanner/safety.py            @your-org/security
+/backend/apps/core/                   @your-org/security
+/backend/apps/*/migrations/           @your-org/security
+/infra/                               @your-org/security
+* @your-org/engineering
