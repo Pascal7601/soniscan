@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: Security Posture Scanner API
+  version: 0.1.0
+paths:
+  /api/v1/domains/:
+    get:
+      operationId: v1_domains_list
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Domain'
+          description: ''
+    post:
+      operationId: v1_domains_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DomainCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DomainCreateRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+          description: ''
+  /api/v1/domains/{domain_id}/verification/:
+    post:
+      operationId: v1_domains_verification_create
+      parameters:
+      - in: path
+        name: domain_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationInstructions'
+          description: ''
+  /api/v1/me/:
+    get:
+      operationId: v1_me_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+components:
+  schemas:
+    Domain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        fqdn:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+          default: pending
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        reverify_due:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - fqdn
+      - id
+      - reverify_due
+      - status
+      - verified_at
+    DomainCreateRequest:
+      type: object
+      properties:
+        fqdn:
+          type: string
+          minLength: 1
+          maxLength: 253
+      required:
+      - fqdn
+    Me:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        memberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/Membership'
+      required:
+      - display_name
+      - email
+      - id
+      - memberships
+    Membership:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        tenant_name:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - role
+      - tenant_id
+      - tenant_name
+    RoleEnum:
+      enum:
+      - owner
+      - admin
+      - viewer
+      type: string
+      description: |-
+        * `owner` - Owner
+        * `admin` - Admin
+        * `viewer` - Viewer
+    StatusEnum:
+      enum:
+      - pending
+      - verified
+      - expired
+      - suspended
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `verified` - Verified
+        * `expired` - Expired
+        * `suspended` - Suspended
+    VerificationInstructions:
+      type: object
+      properties:
+        method:
+          type: string
+        record_name:
+          type: string
+        record_value:
+          type: string
+          description: Shown once. Store it before leaving the page.
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - expires_at
+      - method
+      - record_name
+      - record_value
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

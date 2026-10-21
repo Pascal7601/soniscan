@@ -1,0 +1,30 @@
+{
+  "name": "posture-scanner-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gen:api": "openapi-typescript ../backend/openapi.yaml -o src/lib/api/schema.d.ts"
+  },
+  "dependencies": {
+    "next": "^16.4.2",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^10",
+    "eslint-config-next": "^16.4.2",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3"
+  }
+}
