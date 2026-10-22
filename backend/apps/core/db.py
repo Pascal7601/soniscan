@@ -25,17 +25,20 @@ def enable_tenant_rls(table: str, policy_name: str = "tenant_isolation") -> migr
 
 
 def composite_tenant_fk(
-    *, table: str, column: str, parent_table: str, name: str
+    *, table: str, column: str, parent_table: str, name: str, on_delete: str = "CASCADE"
 ) -> migrations.RunSQL:
     """Add FOREIGN KEY (column, tenant_id) -> parent(id, tenant_id).
 
     Guarantees a child row can never point at a parent owned by another tenant.
-    The parent needs UNIQUE (id, tenant_id).
+    The parent needs UNIQUE (id, tenant_id). Use on_delete="NO ACTION" for references that must
+    block deleting the parent but still allow a cascade that removes both in one statement.
     """
+    if on_delete not in ("CASCADE", "NO ACTION", "RESTRICT"):
+        raise ValueError(f"unsupported on_delete: {on_delete}")
     forward = f"""
         ALTER TABLE {table} ADD CONSTRAINT {name}
           FOREIGN KEY ({column}, tenant_id) REFERENCES {parent_table} (id, tenant_id)
-          ON DELETE CASCADE;
+          ON DELETE {on_delete};
     """
     reverse = f"ALTER TABLE {table} DROP CONSTRAINT {name};"
     return migrations.RunSQL(forward, reverse)

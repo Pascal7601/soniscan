@@ -1,0 +1,21 @@
+[[checks]]
+key = "SVC_RDP_EXPOSED"
+category = "exposed_service"
+requires_verification = true
+title = "Remote desktop is open to the whole internet"
+severity = "critical"
+exploitability = 1.0
+effort = "hours"
+owner = "Your IT provider or whoever manages your firewall"
+explanation = """
+A Windows remote-access service (RDP) answers connections from anywhere on the internet.
+"""
+impact = """
+Attackers constantly scan for this and use stolen or guessed passwords to take control of the
+computer. It is one of the most common starting points of ransomware attacks.
+"""
+steps = [
+  "Block port 3389 from the internet at your firewall or router.",
+  "Allow remote access only through a VPN or a secure gateway.",
+  "Turn on multi-factor authentication for remote logins.",
+]

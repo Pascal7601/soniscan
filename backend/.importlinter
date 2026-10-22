@@ -17,12 +17,12 @@ forbidden_modules =
     config
     celery
 
-[importlinter:contract:core-is-the-lowest-layer]
-name = apps.core must not depend on other apps
-type = forbidden
-source_modules =
-    apps.core
-forbidden_modules =
-    apps.accounts
-    apps.domains
+[importlinter:contract:app-layers]
+name = Apps form layers: a lower app never imports a higher one
+type = layers
+layers =
+    apps.findings
     apps.scans
+    apps.domains
+    apps.accounts
+    apps.core

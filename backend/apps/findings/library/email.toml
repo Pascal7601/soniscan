@@ -1,0 +1,72 @@
+# Check library: the plain-language text shown to customers.
+# Editing wording = edit this file, open a PR, deploy; `sync_check_library` creates a new version.
+# Rules: no unexplained acronyms, lead with the consequence, steps a non-specialist can follow.
+
+[[checks]]
+key = "EMAIL_DMARC_MISSING"
+category = "email"
+requires_verification = false
+title = "Anyone can send emails that pretend to come from your company"
+severity = "medium"
+exploitability = 0.8
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your domain has no DMARC rule. DMARC tells email providers what to do with messages that
+falsely claim to come from your company. Without it, fake messages are usually delivered.
+"""
+impact = """
+Criminals use this to send fake invoices and payment requests to your customers and staff in
+your name. It damages trust and can lead directly to financial loss.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Add a DMARC record that starts in monitoring mode and sends reports to an address you read.",
+  "After two weeks, review the reports and fix any legitimate senders that fail.",
+  "Change the policy to quarantine, then to reject.",
+]
+
+[[checks]]
+key = "EMAIL_DMARC_MONITOR_ONLY"
+category = "email"
+requires_verification = false
+title = "Fake emails in your company's name are still being delivered"
+severity = "medium"
+exploitability = 0.8
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your DMARC rule is set to monitor only. Email providers watch for fake messages but still
+deliver them.
+"""
+impact = """
+Criminals can send fake invoices and payment requests in your company's name and they will
+reach your customers and staff.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Change the DMARC policy from none to quarantine.",
+  "Review the DMARC reports for two weeks, then change the policy to reject.",
+]
+
+[[checks]]
+key = "EMAIL_DMARC_MULTIPLE"
+category = "email"
+requires_verification = false
+title = "Your email protection rules conflict with each other"
+severity = "medium"
+exploitability = 0.5
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your domain publishes more than one DMARC record. Email providers may ignore all of them
+when this happens, which leaves your domain unprotected.
+"""
+impact = """
+Your protection against fake emails may not be working, even though you believe it is set up.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Find the records that start with v=DMARC1 on the _dmarc name.",
+  "Keep one correct record and delete the others.",
+]

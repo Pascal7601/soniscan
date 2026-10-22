@@ -41,8 +41,23 @@ def app_api_role(db):
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'app_api'")
             if cur.fetchone() is None:
                 pytest.skip("app_api role missing; run infra/postgres/init.sql")
+            # Mirrors production grants: full access to tenant tables, read-only on the global
+            # check library and scoring constants (see findings migration 0002).
             cur.execute(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_api"
+                """
+                DO $$
+                DECLARE t text;
+                BEGIN
+                  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+                    IF t IN ('check_definitions', 'scoring_models') THEN
+                      EXECUTE format('REVOKE ALL ON %I FROM app_api', t);
+                      EXECUTE format('GRANT SELECT ON %I TO app_api', t);
+                    ELSE
+                      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO app_api', t);
+                    END IF;
+                  END LOOP;
+                END $$;
+                """
             )
             cur.execute("SET LOCAL ROLE app_api")
 

@@ -31,6 +31,11 @@ def evaluate_dmarc(domain: str, records: list[str]) -> list[CheckResult]:
 class DmarcCheck:
     key = "EMAIL_DMARC"
     requires_verification = False
+    emits: tuple[str, ...] = (
+        "EMAIL_DMARC_MISSING",
+        "EMAIL_DMARC_MULTIPLE",
+        "EMAIL_DMARC_MONITOR_ONLY",
+    )
 
     def run(self, ctx: CheckContext) -> list[CheckResult]:
         return evaluate_dmarc(ctx.domain, ctx.resolver.txt(f"_dmarc.{ctx.domain}"))
