@@ -14,6 +14,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import Tenant
+from apps.core import audit
 
 from .models import Domain, DomainVerification
 
@@ -84,7 +85,7 @@ def _hash(token: str) -> bytes:
 
 
 def start_verification(
-    *, domain: Domain, method: str = Domain.Method.DNS_TXT
+    *, domain: Domain, method: str = Domain.Method.DNS_TXT, actor_id: UUID | None = None
 ) -> tuple[DomainVerification, str]:
     """Create a verification attempt. Returns (record, plaintext_token); token is shown once."""
     token = secrets.token_urlsafe(32)
@@ -94,6 +95,14 @@ def start_verification(
         method=method,
         token_hash=_hash(token),
         expires_at=timezone.now() + VERIFICATION_TTL,
+    )
+    audit.record(
+        action="domain.verification_started",
+        actor_id=actor_id,
+        tenant_id=domain.tenant_id,
+        target_type="domain",
+        target_id=domain.id,
+        metadata={"method": method},
     )
     return verification, token
 
@@ -135,4 +144,12 @@ def complete_verification(
         raise DomainAlreadyClaimed("Another organisation has verified this domain.") from exc
     verification.result = DomainVerification.Result.VERIFIED
     verification.save(update_fields=["result", "checked_at", "updated_at"])
+    audit.record(
+        action="domain.verified",
+        actor_type="system",
+        tenant_id=domain.tenant_id,
+        target_type="domain",
+        target_id=domain.id,
+        metadata={"method": verification.method, "fqdn": domain.fqdn},
+    )
     return True

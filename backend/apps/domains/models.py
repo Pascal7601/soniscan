@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 from apps.core.models import TenantOwnedModel
 
@@ -50,6 +51,14 @@ class Domain(TenantOwnedModel):
 
     def __str__(self) -> str:
         return self.fqdn
+
+    def is_verified_now(self) -> bool:
+        """Verified AND the periodic re-verification has not lapsed."""
+        return (
+            self.status == self.Status.VERIFIED
+            and self.reverify_due is not None
+            and self.reverify_due > timezone.now()
+        )
 
 
 class DomainVerification(TenantOwnedModel):

@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: posture-scanner-backend
+Version: 0.1.0
+Requires-Python: >=3.12
+Requires-Dist: django<7,>=5.2
+Requires-Dist: djangorestframework>=3.15
+Requires-Dist: drf-spectacular>=0.27
+Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: celery[redis]>=5.4
+Requires-Dist: dnspython>=2.6
+Requires-Dist: django-environ>=0.11
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-django>=4.9; extra == "dev"
+Requires-Dist: pytest-cov>=5; extra == "dev"
+Requires-Dist: ruff>=0.8; extra == "dev"
+Requires-Dist: mypy>=1.13; extra == "dev"
+Requires-Dist: django-stubs[compatible-mypy]>=5.1; extra == "dev"
+Requires-Dist: djangorestframework-stubs[compatible-mypy]>=3.15; extra == "dev"
+Requires-Dist: import-linter>=2.1; extra == "dev"
+Requires-Dist: pip-audit>=2.7; extra == "dev"
+Requires-Dist: pyyaml>=6; extra == "dev"
+Requires-Dist: publicsuffixlist>=1.0; extra == "dev"

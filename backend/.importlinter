@@ -25,3 +25,4 @@ source_modules =
 forbidden_modules =
     apps.accounts
     apps.domains
+    apps.scans
