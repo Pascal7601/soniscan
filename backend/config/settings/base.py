@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.domains",
     "apps.scans",
+    "apps.findings",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
