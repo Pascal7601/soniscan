@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "apps.domains",
     "apps.scans",
     "apps.findings",
+    "apps.runner",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -96,7 +97,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"user": "120/min"},
+    "DEFAULT_THROTTLE_RATES": {"user": "120/min", "verification_check": "6/min"},
 }
 
 SPECTACULAR_SETTINGS = {
@@ -109,7 +110,18 @@ SPECTACULAR_SETTINGS = {
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_TIME_LIMIT = 600
-CELERY_TASK_ROUTES = {"apps.scans.*": {"queue": "scans"}}
+CELERY_TASK_ROUTES = {"runner.*": {"queue": "scans"}}
+CELERY_BEAT_SCHEDULE = {
+    "reap-stale-scans": {"task": "runner.reap_stale_scans", "schedule": 300.0},
+}
+
+# DNS servers for scanner lookups. Empty = the container's resolver; set explicit public resolvers
+# in production so results do not depend on an internal resolver.
+SCANNER_DNS_SERVERS = env.list("SCANNER_DNS_SERVERS", default=[])
+SCANNER_DNS_TIMEOUT = env.float("SCANNER_DNS_TIMEOUT", default=5.0)
+# A name that must resolve; if it does not, the resolver is untrusted and scans fail instead of
+# reporting false findings. Set to an empty string to disable (not recommended).
+SCANNER_DNS_CANARY = env("SCANNER_DNS_CANARY", default="a.root-servers.net")
 
 LOGGING = {
     "version": 1,

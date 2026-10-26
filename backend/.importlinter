@@ -21,6 +21,7 @@ forbidden_modules =
 name = Apps form layers: a lower app never imports a higher one
 type = layers
 layers =
+    apps.runner
     apps.findings
     apps.scans
     apps.domains

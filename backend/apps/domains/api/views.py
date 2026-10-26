@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api.base import TenantScopedAPIView
 from apps.domains import selectors, services
@@ -12,6 +13,8 @@ from apps.domains import selectors, services
 from .serializers import (
     DomainCreateSerializer,
     DomainSerializer,
+    ErrorSerializer,
+    VerificationCheckSerializer,
     VerificationInstructionsSerializer,
 )
 
@@ -55,3 +58,24 @@ class DomainVerificationStartView(TenantScopedAPIView):
         return Response(
             VerificationInstructionsSerializer(payload).data, status=status.HTTP_201_CREATED
         )
+
+
+class DomainVerificationCheckView(TenantScopedAPIView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "verification_check"
+
+    @extend_schema(request=None, responses={202: VerificationCheckSerializer, 409: ErrorSerializer})
+    def post(self, request: Request, domain_id: UUID) -> Response:
+        domain = selectors.get_domain(
+            tenant_id=request.tenant_id,
+            domain_id=domain_id,
+        )
+        if domain is None:
+            raise NotFound
+        if domain.is_verified_now():
+            return Response({"status": "already_verified"}, status=status.HTTP_200_OK)
+        try:
+            services.request_verification_check(domain=domain, actor_id=request.user.id)
+        except services.NoPendingVerification as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({"status": "queued"}, status=status.HTTP_202_ACCEPTED)

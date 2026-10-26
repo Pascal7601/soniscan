@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Tenant
 from apps.core import audit
+from apps.core.tasks import dispatch_on_commit
 
 from .models import Domain, DomainVerification
 
@@ -42,6 +43,12 @@ class QuotaExceeded(DomainError):
 
 class DomainAlreadyClaimed(DomainError):
     pass
+
+class NoPendingVerification(DomainError):
+    pass
+
+
+VERIFY_TASK = "runner.verify_domain"
 
 
 def normalise_fqdn(raw: str) -> str:
@@ -128,7 +135,8 @@ def complete_verification(
     )
     verification.checked_at = now
     if not matched:
-        verification.result = DomainVerification.Result.FAILED
+        # Stay PENDING until it expires: DNS changes take minutes to propagate, so one miss must
+        # not burn the customer's one-time token.
         verification.save(update_fields=["result", "checked_at", "updated_at"])
         return False
 
@@ -139,7 +147,16 @@ def complete_verification(
     domain.reverify_due = now + REVERIFY_AFTER
     try:
         with transaction.atomic():
-            domain.save()
+            # update_fields: the scanner worker role only holds UPDATE on these columns.
+            domain.save(
+                update_fields=[
+                    "status",
+                    "verified_at",
+                    "verified_method",
+                    "reverify_due",
+                    "updated_at",
+                ]
+            )
     except IntegrityError as exc:
         raise DomainAlreadyClaimed("Another organisation has verified this domain.") from exc
     verification.result = DomainVerification.Result.VERIFIED
@@ -153,3 +170,20 @@ def complete_verification(
         metadata={"method": verification.method, "fqdn": domain.fqdn},
     )
     return True
+
+
+def request_verification_check(*, domain: Domain, actor_id: UUID | None = None) -> None:
+    """Ask a worker to look for the verification record. Returns immediately (HTTP 202)."""
+    pending = DomainVerification.objects.filter(
+        domain=domain, result=DomainVerification.Result.PENDING, expires_at__gt=timezone.now()
+    )
+    if not pending.exists():
+        raise NoPendingVerification("Start verification first to get your record.")
+    audit.record(
+        action="domain.verification_check_requested",
+        actor_id=actor_id,
+        tenant_id=domain.tenant_id,
+        target_type="domain",
+        target_id=domain.id,
+    )
+    dispatch_on_commit(VERIFY_TASK, str(domain.tenant_id), str(domain.id))

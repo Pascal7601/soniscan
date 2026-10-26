@@ -19,3 +19,9 @@ class VerificationInstructionsSerializer(serializers.Serializer):
     record_name = serializers.CharField()
     record_value = serializers.CharField(help_text="Shown once. Store it before leaving the page.")
     expires_at = serializers.DateTimeField()
+
+class VerificationCheckSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["queued", "already_verified"])
+
+class ErrorSerializer(serializers.Serializer):
+    detail = serializers.CharField()
