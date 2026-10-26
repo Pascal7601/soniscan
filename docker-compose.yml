@@ -1,4 +1,5 @@
-# Local dependencies only. Run backend and frontend on the host for fast reloads.
+# Default: only dependencies (Postgres, Redis). Run backend and frontend on the host for fast reloads.
+# Full stack in containers (integration check):  docker compose --profile app up --build
 services:
   db:
     image: postgres:16
@@ -15,8 +16,73 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
   redis:
     image: redis:7
     ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---- application containers (profile "app") ----
+  migrate:
+    profiles: ["app"]
+    build: ./backend
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    environment: &backend-env
+      DJANGO_SETTINGS_MODULE: config.settings.local   # local settings: HTTP, DEBUG on. Never use in production.
+      DJANGO_SECRET_KEY: local-compose-only-secret
+      # Migrations run as the owner role; the app and worker below run as the restricted role.
+      DATABASE_URL: postgres://app_owner:app_owner_dev@db:5432/posture
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  backend:
+    profiles: ["app"]
+    build: ./backend
+    environment:
+      <<: *backend-env
+      DATABASE_URL: postgres://app_api:app_api_dev@db:5432/posture
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: ./backend
+    command: ["celery", "-A", "config", "worker", "-l", "info", "-Q", "celery,scans"]
+    environment:
+      <<: *backend-env
+      # The worker runs as its own least-privilege role (grants: apps/runner migration).
+      DATABASE_URL: postgres://scanner_worker:scanner_worker_dev@db:5432/posture
+      # SCANNER_DNS_SERVERS: 1.1.1.1,9.9.9.9   # pin public resolvers in production
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+  
+  # Exactly ONE beat instance: it schedules the stale-scan reaper (every 5 minutes).
+  beat:
+    profiles: ["app"]
+    build: ./backend
+    command: ["celery", "-A", "config", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
+    environment: *backend-env
+    depends_on:
+      redis: { condition: service_healthy }
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    ports: ["3000:3000"]
+    depends_on:
+      - backend
+
 volumes:
   pgdata:

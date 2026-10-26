@@ -10,9 +10,11 @@ from django.utils import timezone
 from apps.accounts.models import Tenant
 from apps.core import audit
 from apps.domains.models import Domain
+from apps.core.tasks import dispatch_on_commit
 
 from .models import Scan
 
+RUN_SCAN_TASK = "runner.run_scan"
 PLAN_MAX_SCANS_PER_MONTH = {"free": 3, "starter": 30, "business": 150}
 PLAN_ALLOWS_ACTIVE = {"free": False, "starter": True, "business": True}
 
@@ -60,7 +62,7 @@ def request_scan(
 
     used = (
         Scan.objects.filter(tenant_id=tenant.id, queued_at__gte=_month_start(timezone.now()))
-        .exclude(status=Scan.Status.REFUSED)
+        .exclude(status__in=[Scan.Status.REFUSED, Scan.Status.FAILED])
         .count()
     )
     limit = PLAN_MAX_SCANS_PER_MONTH[tenant.plan]
@@ -82,6 +84,8 @@ def request_scan(
         target_id=scan.id,
         metadata={"mode": mode, "domain": domain.fqdn, "trigger": trigger_type},
     )
+    dispatch_on_commit(RUN_SCAN_TASK, str(tenant.id), str(scan.id))
+    return scan
     # Step 3 will enqueue execution here:
     #   transaction.on_commit(lambda: run_scan.delay(str(tenant.id), str(scan.id)))
     return scan
