@@ -1,3 +1,4 @@
+import socket
 import pytest
 
 from apps.accounts.models import Membership, Tenant, User
@@ -79,4 +80,54 @@ def verified_domain(tenant_a):
         verified_at=timezone.now(),
         verified_method=Domain.Method.DNS_TXT,
         reverify_due=timezone.now() + timedelta(days=90),
+    )
+
+# ---- hermetic tests: no test may touch the real network ------------------------------------------
+# A leaked network call is a flaky test in CI and, for a scanner, an unauthorised probe of someone
+# else's server. Loopback and unix sockets stay allowed (local test servers, tooling).
+
+
+def _is_local(address) -> bool:
+    if isinstance(address, str | bytes):  # a unix socket path
+        return True
+    host = address[0]
+    if isinstance(host, bytes):
+        host = host.decode()
+    return host in ("localhost", "::1", "") or host.startswith("127.")
+
+
+@pytest.fixture(autouse=True)
+def no_external_network(monkeypatch):
+    def refuse(address):
+        raise RuntimeError(f"tests must not use the network (tried {address!r})")
+
+    def guard(original):
+        def wrapper(self, *args):
+            if not _is_local(args[-1]):
+                refuse(args[-1])
+            return original(self, *args)
+
+        return wrapper
+
+    for name in ("connect", "connect_ex", "sendto"):
+        monkeypatch.setattr(socket.socket, name, guard(getattr(socket.socket, name)))
+
+    real_getaddrinfo = socket.getaddrinfo
+
+    def getaddrinfo(host, *args, **kwargs):
+        if host not in (None, "") and not _is_local((host,)):
+            refuse(host)
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    # Also the C-level function, so code that captured `socket.getaddrinfo` earlier cannot escape.
+    low_level = socket._socket.getaddrinfo
+    monkeypatch.setattr(
+        socket._socket,
+        "getaddrinfo",
+        lambda host, *a, **kw: (
+            refuse(host)
+            if host not in (None, "") and not _is_local((host,))
+            else low_level(host, *a, **kw)
+        ),
     )

@@ -1,0 +1,153 @@
+# Web hygiene: redirects and security headers.
+
+[[checks]]
+key = "WEB_NO_HTTPS_REDIRECT"
+category = "web"
+requires_verification = false
+title = "Visitors who type your address are not sent to the secure version"
+severity = "medium"
+exploitability = 0.6
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website has a secure version, but visitors who arrive by typing your address or following an
+old link land on the unsecured version and stay there.
+"""
+impact = """
+Anyone on the same network, such as public Wi-Fi, can read or change what those visitors see and
+send, including logins and forms.
+"""
+steps = [
+  "Ask your web host or developer to redirect all http:// addresses to https://.",
+  "Many hosts and services have a single 'Always use HTTPS' switch for this.",
+]
+
+[[checks]]
+key = "WEB_HSTS_MISSING"
+category = "web"
+requires_verification = false
+title = "Your website does not tell browsers to always use the secure version"
+severity = "medium"
+exploitability = 0.4
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website does not send the security instruction (HSTS) that makes a browser remember to use
+only the secure version. Without it, a visitor's very first visit can still be intercepted.
+"""
+impact = """
+Attackers on the same network can trick a visitor into a fake, unsecured copy of your site and
+steal what they type.
+"""
+steps = [
+  "Ask your web host or developer to add the header Strict-Transport-Security with max-age=31536000.",
+  "Only add includeSubDomains once every part of your website works over HTTPS.",
+]
+
+[[checks]]
+key = "WEB_HSTS_WEAK"
+category = "web"
+requires_verification = false
+title = "The instruction to always use the secure version expires too quickly"
+severity = "low"
+exploitability = 0.3
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website tells browsers to remember to use the secure version, but only for a short time, so
+the protection keeps lapsing.
+"""
+impact = """
+The protection is weaker than it looks, because visitors who return after a few days are exposed
+again on their first visit.
+"""
+steps = [
+  "Ask your web host or developer to raise the Strict-Transport-Security max-age to at least 15552000 (six months).",
+  "One year (31536000) is the usual recommendation.",
+]
+
+[[checks]]
+key = "WEB_CSP_MISSING"
+category = "web"
+requires_verification = false
+title = "Your website has no content security policy"
+severity = "low"
+exploitability = 0.3
+effort = "days"
+owner = "Your website developer"
+explanation = """
+A content security policy tells browsers which sources your pages may load scripts and content
+from. Your website does not send one.
+"""
+impact = """
+If an attacker manages to inject a malicious script into one of your pages, the browser has no
+rule to stop it from running or sending visitors' data elsewhere.
+"""
+steps = [
+  "Ask your developer to add a Content-Security-Policy header, starting in report-only mode.",
+  "Review the reports for a few weeks, fix anything that would break, then enforce the policy.",
+]
+
+[[checks]]
+key = "WEB_NOSNIFF_MISSING"
+category = "web"
+requires_verification = false
+title = "Browsers may guess the type of your files instead of trusting you"
+severity = "low"
+exploitability = 0.2
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website does not send the instruction (X-Content-Type-Options: nosniff) that stops browsers
+from guessing what a file is. A harmless-looking upload could be treated as a program.
+"""
+impact = """
+It makes some attacks easier, such as an uploaded file being run as a script.
+"""
+steps = [
+  "Ask your web host or developer to add the header X-Content-Type-Options with the value nosniff.",
+]
+
+[[checks]]
+key = "WEB_CLICKJACKING_UNPROTECTED"
+category = "web"
+requires_verification = false
+title = "Other websites could show yours inside a hidden frame"
+severity = "low"
+exploitability = 0.3
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website does not stop other websites from displaying it inside an invisible frame, which is
+how "clickjacking" tricks people into clicking buttons on your site without realising.
+"""
+impact = """
+A criminal could disguise your login or payment buttons under something harmless and get your
+visitors to press them.
+"""
+steps = [
+  "Ask your web host or developer to add the header X-Frame-Options with the value SAMEORIGIN.",
+  "A modern alternative is a Content-Security-Policy with frame-ancestors 'self'.",
+]
+
+[[checks]]
+key = "WEB_VERSION_DISCLOSURE"
+category = "web"
+requires_verification = false
+title = "Your website tells everyone exactly which software versions it runs"
+severity = "low"
+exploitability = 0.3
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+Your website announces the name and version of its software (for example in the Server header).
+This is information only you and your developers need.
+"""
+impact = """
+Attackers look for sites running specific old versions with known flaws. Publishing the version
+saves them the effort of guessing, and tells them whether you have been keeping up with updates.
+"""
+steps = [
+  "Ask your web host or developer to hide version numbers (for example nginx: server_tokens off; Apache: ServerTokens Prod; PHP: expose_php Off).",
+  "More importantly, make sure the software is kept up to date.",
+]

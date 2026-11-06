@@ -26,13 +26,18 @@ def is_public_ip(value: str) -> bool:
     return addr.is_global and not addr.is_multicast
 
 
-def resolve_public(host: str, getaddrinfo: GetAddrInfo = socket.getaddrinfo) -> list[str]:
-    """Resolve `host` and return its addresses, raising if ANY address is not public."""
+def resolve_public(host: str, getaddrinfo: GetAddrInfo | None = None) -> list[str]:
+    """Resolve `host` and return its addresses, raising if ANY address is not public.
+
+    `getaddrinfo` is looked up at CALL time (not bound as a default at import), so tests and
+    tooling that replace `socket.getaddrinfo` are honoured.
+    """
+    lookup = getaddrinfo or socket.getaddrinfo
     try:
-        infos = getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        infos = lookup(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise UnsafeTarget(f"cannot resolve {host}") from exc
-    addresses = sorted({info[4][0] for info in infos})
+    addresses = sorted({str(info[4][0]) for info in infos})
     if not addresses:
         raise UnsafeTarget(f"{host} has no addresses")
     blocked = [a for a in addresses if not is_public_ip(a)]

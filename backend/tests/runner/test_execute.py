@@ -13,7 +13,13 @@ from apps.scans.models import Scan
 from scanner import runner
 from scanner.checks.email_auth import DmarcCheck
 from scanner.dns import DnsPythonResolver
-from scanner.types import CheckResult, Severity
+from datetime import UTC, datetime, timedelta
+
+from scanner.types import CheckResult, Severity, TlsObservation, WebResponse
+
+from .conftest import FakeResolver, FakeTls, FakeWeb, NoWebsite, NoWebsiteTls
+import scanner.checks  # noqa: F401  (registers checks)
+from scanner.registry import passive_checks
 
 from .conftest import FakeResolver
 
@@ -22,12 +28,18 @@ pytestmark = pytest.mark.usefixtures("library")
 DMARC_NAME = "_dmarc.acme.example"
 
 
-def execute(scan, resolver=None, checks=None):
+def execute(scan, resolver=None, checks=None, tls=None, web=None):
+    """Runs the DMARC check only by default, so lifecycle tests stay about one finding at a time.
+
+    The TLS probe and web client default to "no website" fakes: tests never touch the network.
+    """
     return services.execute_scan(
         tenant_id=scan.tenant_id,
         scan_id=scan.id,
         resolver=resolver or FakeResolver(),
-        checks=checks,
+        checks=[DmarcCheck()] if checks is None else checks,
+        tls=tls or NoWebsiteTls(),
+        web=web or NoWebsite(),
     )
 
 
@@ -226,3 +238,101 @@ def test_a_hijacked_resolver_cannot_create_false_findings_or_close_real_ones(dom
     finding = Finding.objects.get()  # still exactly one, and still open
     assert finding.check_definition.check_key == "EMAIL_DMARC_MONITOR_ONLY"
     assert finding.status == Finding.Status.OPEN
+
+
+# ---- several checks together -------------------------------------------------------------------
+
+
+def open_keys():
+    return set(
+        Finding.objects.filter(status="open").values_list("check_definition__check_key", flat=True)
+    )
+
+
+def test_all_registered_passive_checks_run_in_one_scan(queued_scan):
+    assert execute(queued_scan, checks=passive_checks()) == ExecutionResult.SUCCEEDED
+    assert open_keys() == {"EMAIL_DMARC_MISSING", "EMAIL_SPF_MISSING", "EMAIL_DKIM_NOT_FOUND"}
+
+
+def test_one_failing_lookup_gives_a_partial_scan_and_the_other_checks_are_kept(queued_scan):
+    flaky = FakeResolver({DMARC_NAME: TimeoutError("dns timed out")})
+
+    assert execute(queued_scan, flaky, checks=passive_checks()) == ExecutionResult.PARTIAL
+
+    queued_scan.refresh_from_db()
+    assert queued_scan.status == Scan.Status.PARTIAL
+    assert "EMAIL_DMARC" in queued_scan.error
+    assert open_keys() == {"EMAIL_SPF_MISSING", "EMAIL_DKIM_NOT_FOUND"}  # nothing about DMARC
+
+
+def test_a_partial_scan_never_closes_the_findings_of_the_check_that_failed(domain, queued_scan):
+    execute(queued_scan, checks=passive_checks())  # DMARC, SPF and DKIM findings all open
+    flaky = FakeResolver({DMARC_NAME: TimeoutError("dns timed out")})
+    healthy_spf = {"acme.example": ["v=spf1 -all"], **flaky.records}
+
+    result = execute(make_scan(domain), FakeResolver(healthy_spf), checks=passive_checks())
+
+    assert result == ExecutionResult.PARTIAL
+    assert open_keys() == {"EMAIL_DMARC_MISSING", "EMAIL_DKIM_NOT_FOUND"}  # SPF fixed, DMARC kept
+    assert Finding.objects.get(check_definition__check_key="EMAIL_SPF_MISSING").status == "fixed"
+
+
+# ---- the web checks, with fakes instead of the network -----------------------------------------
+
+
+def bare_page(url):
+    """A page that sets none of the recommended security headers."""
+    return WebResponse(status=200, headers={}, url=url)
+
+
+def test_a_full_scan_includes_the_certificate_and_web_findings(queued_scan):
+    expiring = TlsObservation(not_after=datetime.now(UTC) + timedelta(days=5), protocol="TLSv1.3")
+    web = FakeWeb({
+        "https://acme.example/": bare_page("https://acme.example/"),
+        "http://acme.example/": bare_page("http://acme.example/"),
+    })  # fmt: skip
+
+    result = execute(queued_scan, checks=passive_checks(), tls=FakeTls(expiring), web=web)
+
+    assert result == ExecutionResult.SUCCEEDED
+    assert open_keys() == {
+        "EMAIL_DMARC_MISSING", "EMAIL_SPF_MISSING", "EMAIL_DKIM_NOT_FOUND",
+        "TLS_CERT_EXPIRING_SOON", "WEB_NO_HTTPS_REDIRECT", "WEB_HSTS_MISSING",
+        "WEB_CSP_MISSING", "WEB_NOSNIFF_MISSING", "WEB_CLICKJACKING_UNPROTECTED",
+    }  # fmt: skip
+
+
+def test_a_web_timeout_gives_a_partial_scan_and_creates_no_web_findings(queued_scan):
+    web = FakeWeb({"https://acme.example/": TimeoutError("timed out")})
+
+    assert execute(queued_scan, checks=passive_checks(), web=web) == ExecutionResult.PARTIAL
+
+    queued_scan.refresh_from_db()
+    assert "WEB_HEADERS" in queued_scan.error
+    assert open_keys() == {"EMAIL_DMARC_MISSING", "EMAIL_SPF_MISSING", "EMAIL_DKIM_NOT_FOUND"}
+
+
+def test_fixing_the_certificate_closes_its_finding_on_the_next_scan(domain, queued_scan):
+    expired = TlsObservation(cert_problem="expired")
+    healthy = TlsObservation(not_after=datetime.now(UTC) + timedelta(days=90), protocol="TLSv1.3")
+
+    execute(queued_scan, checks=passive_checks(), tls=FakeTls(expired))
+    assert "TLS_CERT_EXPIRED" in open_keys()
+
+    execute(make_scan(domain), checks=passive_checks(), tls=FakeTls(healthy))
+    assert "TLS_CERT_EXPIRED" not in open_keys()
+    assert Finding.objects.get(check_definition__check_key="TLS_CERT_EXPIRED").status == "fixed"
+
+
+def test_a_scan_that_forgets_its_fakes_cannot_reach_the_real_network(queued_scan):
+    """Defence in depth: the default (real) network clients are blocked by the test guard, so the
+    network checks fail instead of probing anything."""
+    result = services.execute_scan(
+        tenant_id=queued_scan.tenant_id,
+        scan_id=queued_scan.id,
+        resolver=FakeResolver(),
+        checks=passive_checks(),
+    )
+    assert result == ExecutionResult.PARTIAL
+    queued_scan.refresh_from_db()
+    assert "tests must not use the network" in queued_scan.error
