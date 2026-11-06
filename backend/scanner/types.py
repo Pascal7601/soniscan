@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol
+from collections.abc import Mapping
+from datetime import datetime
 
 
 class Severity(StrEnum):
@@ -26,11 +28,55 @@ class Resolver(Protocol):
     def txt(self, name: str) -> list[str]: ...
 
 
+class CapabilityMissing(Exception):
+    """A check needs a capability (TLS probe, web client) that the caller did not provide."""
+
+
+@dataclass(frozen=True)
+class TlsObservation:
+    """What a TLS probe learned about a host's HTTPS service.
+
+    `resolved=False` means the host has no public address, i.e. no web presence to judge. A host
+    that resolves but refuses connections on the HTTPS port is `reachable=False`.
+    """
+
+    resolved: bool = True
+    reachable: bool = True
+    # One of "expired", "self_signed", "hostname_mismatch", "untrusted_chain"; None = trusted.
+    cert_problem: str | None = None
+    not_after: datetime | None = None  # certificate expiry (UTC); known when the chain is trusted
+    protocol: str | None = None  # negotiated version, for example "TLSv1.3"
+    legacy_protocols: tuple[str, ...] = ()  # protocols older than TLS 1.2 the server accepted
+    modern_tls: bool = True  # False when the server accepts nothing newer than TLS 1.1
+
+
+class TlsProbe(Protocol):
+    def probe(self, host: str) -> TlsObservation: ...
+
+
+@dataclass(frozen=True)
+class WebResponse:
+    """One HTTP response. Redirects are NOT followed; the caller decides whether to follow."""
+
+    status: int
+    headers: Mapping[str, str]  # header names lower-cased; repeated headers joined with ", "
+    url: str
+
+
+class WebClient(Protocol):
+    def get(self, url: str) -> WebResponse | None:
+        """GET `url`. None when there is nothing to talk to (no public address, connection
+        refused). Raises on timeouts and other failures so a check fails instead of guessing."""
+        ...
+
+
 @dataclass(frozen=True)
 class CheckContext:
     domain: str
     resolver: Resolver
     verified: bool = False  # True only when domain ownership has been proven
+    tls: TlsProbe | None = None  # needed by checks that look at the HTTPS service
+    web: WebClient | None = None  # needed by checks that fetch web pages
 
 
 class Check(Protocol):

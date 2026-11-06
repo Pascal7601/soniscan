@@ -39,7 +39,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["**/migrations/*.py"]
+extend-exclude = ["**/migrations/*.py", "**/*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S", "DJ", "C4", "SIM", "PT", "RUF"]

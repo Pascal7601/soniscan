@@ -1,0 +1,158 @@
+# TLS and certificates: the padlock in the browser.
+
+[[checks]]
+key = "TLS_NOT_AVAILABLE"
+category = "tls"
+requires_verification = false
+title = "Your website cannot be reached securely"
+severity = "medium"
+exploitability = 0.6
+effort = "hours"
+owner = "Your web host or website developer"
+explanation = """
+Your website's address exists, but it does not accept secure (HTTPS) connections. Browsers show
+a "Not secure" warning, and everything visitors type travels across the internet in the open.
+"""
+impact = """
+Customers see a warning and may leave. Passwords, enquiry forms and payment details can be read or
+changed by anyone on the same network. Search engines also rank unsecured sites lower.
+"""
+steps = [
+  "Ask your web host or developer to switch on HTTPS for your website.",
+  "Most hosts offer free certificates (often from Let's Encrypt) that renew automatically.",
+  "After it is on, make sure visitors are sent to the secure version automatically.",
+]
+
+[[checks]]
+key = "TLS_CERT_EXPIRED"
+category = "tls"
+requires_verification = false
+title = "Your website's security certificate has expired"
+severity = "high"
+exploitability = 1.0
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+The certificate that proves your website is genuine ran out of date. Browsers now show a full-page
+warning telling visitors the site is dangerous.
+"""
+impact = """
+Most visitors will leave immediately, and customers may think your business has been hacked.
+Browsers and other software that talk to your website may stop working altogether.
+"""
+steps = [
+  "Renew the certificate today through your web host or certificate provider.",
+  "Switch on automatic renewal so this cannot happen again.",
+  "Add a calendar reminder two weeks before the next expiry date as a backup.",
+]
+
+[[checks]]
+key = "TLS_CERT_EXPIRING_SOON"
+category = "tls"
+requires_verification = false
+title = "Your website's security certificate is about to expire"
+severity = "medium"
+exploitability = 0.7
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+The certificate that proves your website is genuine will run out of date soon. When it does,
+browsers show a full-page warning and most visitors will leave.
+"""
+impact = """
+If it is not renewed in time, your website will appear dangerous to every visitor until someone
+fixes it, often at the worst possible moment.
+"""
+steps = [
+  "Renew the certificate through your web host or certificate provider.",
+  "Switch on automatic renewal so you do not have to remember.",
+  "Check afterwards that the new expiry date is in the future.",
+]
+
+[[checks]]
+key = "TLS_CERT_SELF_SIGNED"
+category = "tls"
+requires_verification = false
+title = "Your website uses a security certificate that nobody else trusts"
+severity = "high"
+exploitability = 0.8
+effort = "hours"
+owner = "Your web host or website developer"
+explanation = """
+Your website's certificate was created by the website itself rather than by a recognised
+certificate authority, so browsers cannot confirm that the site is genuine and show a warning.
+"""
+impact = """
+Visitors see a scary warning and most will leave. It also teaches people to click through security
+warnings, which criminals take advantage of.
+"""
+steps = [
+  "Replace the certificate with one from a recognised authority; Let's Encrypt is free.",
+  "Ask your web host or developer to install it and switch on automatic renewal.",
+]
+
+[[checks]]
+key = "TLS_CERT_HOSTNAME_MISMATCH"
+category = "tls"
+requires_verification = false
+title = "Your website's security certificate is for a different web address"
+severity = "high"
+exploitability = 0.8
+effort = "hours"
+owner = "Your web host or website developer"
+explanation = """
+The certificate your website presents was issued for a different address than the one visitors
+use, so browsers show a warning that the connection is not private.
+"""
+impact = """
+Visitors see a full-page warning and most will leave, and it may mean the wrong certificate is
+installed or part of your site is misconfigured.
+"""
+steps = [
+  "Ask your web host or developer to issue a certificate that covers this exact address, including the www version.",
+  "Check that the certificate is installed on the right website in your hosting settings.",
+]
+
+[[checks]]
+key = "TLS_CERT_UNTRUSTED_CHAIN"
+category = "tls"
+requires_verification = false
+title = "Your website's security certificate is not fully set up"
+severity = "medium"
+exploitability = 0.6
+effort = "minutes"
+owner = "Your web host or website developer"
+explanation = """
+The certificate is missing a supporting certificate, or was issued by an authority that browsers
+do not know. Some devices and programs will show a warning even though others do not.
+"""
+impact = """
+Some of your customers see security warnings and others do not, which is confusing and costs you
+visitors on certain phones, older computers and business systems.
+"""
+steps = [
+  "Install the full certificate chain; your provider usually supplies it as a 'fullchain' or 'bundle' file.",
+  "If the certificate comes from a private authority, replace it with a public one for your website.",
+]
+
+[[checks]]
+key = "TLS_LEGACY_PROTOCOL"
+category = "tls"
+requires_verification = false
+title = "Your website still accepts outdated security settings"
+severity = "medium"
+exploitability = 0.4
+effort = "hours"
+owner = "Your web host or website developer"
+explanation = """
+Your website still allows connections using very old versions of the security technology (TLS 1.0
+or 1.1), which have known weaknesses and were retired by all major browsers years ago.
+"""
+impact = """
+Attackers who can watch a connection may be able to break the protection. Some payment and
+compliance standards also require these old versions to be switched off.
+"""
+steps = [
+  "Ask your web host or developer to disable TLS 1.0 and TLS 1.1, keeping TLS 1.2 and 1.3.",
+  "If you use a service such as Cloudflare, set the minimum TLS version to 1.2 in its settings.",
+]

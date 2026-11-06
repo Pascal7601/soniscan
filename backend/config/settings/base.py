@@ -119,6 +119,8 @@ CELERY_BEAT_SCHEDULE = {
 # in production so results do not depend on an internal resolver.
 SCANNER_DNS_SERVERS = env.list("SCANNER_DNS_SERVERS", default=[])
 SCANNER_DNS_TIMEOUT = env.float("SCANNER_DNS_TIMEOUT", default=5.0)
+# Seconds allowed for each TLS handshake and web request a check makes to a customer site.
+SCANNER_NET_TIMEOUT = env.float("SCANNER_NET_TIMEOUT", default=5.0)
 # A name that must resolve; if it does not, the resolver is untrusted and scans fail instead of
 # reporting false findings. Set to an empty string to disable (not recommended).
 SCANNER_DNS_CANARY = env("SCANNER_DNS_CANARY", default="a.root-servers.net")

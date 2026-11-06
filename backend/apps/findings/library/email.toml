@@ -70,3 +70,170 @@ steps = [
   "Find the records that start with v=DMARC1 on the _dmarc name.",
   "Keep one correct record and delete the others.",
 ]
+
+
+[[checks]]
+key = "EMAIL_SPF_MISSING"
+category = "email"
+requires_verification = false
+title = "Nothing tells email providers which servers may send mail for your company"
+severity = "medium"
+exploitability = 0.8
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your domain has no SPF record. SPF is a public list of the servers that are allowed to send email
+for your company. Without it, receiving mail providers have no way to check whether a message
+claiming to come from you is real.
+"""
+impact = """
+Criminals can send fake invoices and payment requests in your company's name, and your own genuine
+emails are more likely to be treated as junk.
+"""
+steps = [
+  "List every service that sends email for your company, such as Microsoft 365, Google Workspace and any newsletter or invoicing tool.",
+  "Log in to wherever your domain's DNS records are managed.",
+  "Add one TXT record that starts with v=spf1, includes each of those services (each provider publishes the exact text to use), and ends with ~all.",
+  "After your DMARC reports look clean for a couple of weeks, change ~all to -all.",
+]
+
+[[checks]]
+key = "EMAIL_SPF_MULTIPLE"
+category = "email"
+requires_verification = false
+title = "Your list of approved email senders is published more than once"
+severity = "medium"
+exploitability = 0.5
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your domain publishes more than one SPF record. The rules say there must be exactly one, so
+receiving mail providers treat this as an error and may ignore all of them.
+"""
+impact = """
+Your protection against fake emails may not be working, and your own genuine emails may start to
+fail checks and land in junk folders.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Find every TXT record that starts with v=spf1.",
+  "Combine them into a single record that lists all of your senders, then delete the others.",
+]
+
+[[checks]]
+key = "EMAIL_SPF_ALLOWS_ANYONE"
+category = "email"
+requires_verification = false
+title = "Your list of approved email senders approves every server in the world"
+severity = "high"
+exploitability = 0.9
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your SPF record ends with +all (or just all), which tells receiving mail providers that any server
+on the internet may send email for your company.
+"""
+impact = """
+The check can never fail, so it gives you no protection. Anyone can send email that passes it while
+pretending to be you.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Find your SPF record (the TXT record that starts with v=spf1).",
+  "Change the ending from +all (or all) to ~all, making sure all your real senders are listed first.",
+  "Later, once things look healthy, tighten it to -all.",
+]
+
+[[checks]]
+key = "EMAIL_SPF_WEAK"
+category = "email"
+requires_verification = false
+title = "Your email sender list does not tell providers to distrust unlisted servers"
+severity = "medium"
+exploitability = 0.5
+effort = "minutes"
+owner = "Whoever manages your domain or email"
+explanation = """
+Your SPF record either ends with ?all, or has no closing rule at all. Both tell receiving mail
+providers to stay neutral about servers that are not on your list.
+"""
+impact = """
+Fake emails from servers you never approved are not marked as suspicious, so they are much more
+likely to reach your customers and staff.
+"""
+steps = [
+  "Log in to wherever your domain's DNS records are managed.",
+  "Find your SPF record (the TXT record that starts with v=spf1).",
+  "End it with ~all, then with -all once you are sure every real sender is listed.",
+]
+
+[[checks]]
+key = "EMAIL_SPF_TOO_MANY_LOOKUPS"
+category = "email"
+requires_verification = false
+title = "Your email sender list is too long for providers to read"
+severity = "medium"
+exploitability = 0.5
+effort = "hours"
+owner = "Whoever manages your domain or email, with your email provider"
+explanation = """
+SPF only allows ten lookups to other names while it is being checked. Your record, with everything
+it includes, needs more than that, so receiving providers give up and treat it as an error.
+"""
+impact = """
+Your own genuine emails can start failing the check and land in junk folders, often without anyone
+noticing, and your protection against fake emails stops working.
+"""
+steps = [
+  "List the services in your SPF record and remove any you no longer use.",
+  "Ask your email providers whether they offer a shorter or combined SPF entry.",
+  "Consider an SPF flattening service if you genuinely need many senders.",
+  "Re-check after the change; the number of lookups must be ten or fewer.",
+]
+
+[[checks]]
+key = "EMAIL_DKIM_NOT_FOUND"
+category = "email"
+requires_verification = false
+title = "We could not find a digital signature key for your company's email"
+severity = "low"
+exploitability = 0.3
+effort = "minutes"
+owner = "Whoever manages your email"
+explanation = """
+DKIM adds a tamper-proof signature to outgoing email, which receiving providers check against a
+public key in your DNS. We looked under the names that most email providers use and found nothing.
+Some providers use unusual names, so this may be a false alarm.
+"""
+impact = """
+Without signatures, providers cannot prove your emails were not changed on the way, and your
+protection against fake emails relies on weaker checks.
+"""
+steps = [
+  "Ask your email provider whether DKIM signing is switched on for your domain (in Microsoft 365 it is in the Defender portal; in Google Workspace it is under Gmail, Authenticate email).",
+  "If it is off, switch it on and publish the DNS records they give you.",
+  "If you have confirmed it is already on, you can record that by accepting this finding as a known risk.",
+]
+
+[[checks]]
+key = "EMAIL_DKIM_WEAK_KEY"
+category = "email"
+requires_verification = false
+title = "Your email signing key is weaker than recommended"
+severity = "medium"
+exploitability = 0.3
+effort = "hours"
+owner = "Whoever manages your email, with your email provider"
+explanation = """
+The key your company uses to sign its email is shorter than the 2048 bits that is recommended
+today. Shorter keys are easier to break with enough computing power.
+"""
+impact = """
+A determined attacker could forge signatures and send email that appears to be genuinely from your
+company.
+"""
+steps = [
+  "In your email provider's settings, generate a new DKIM key of 2048 bits.",
+  "Publish the new key in your domain's DNS as the provider instructs.",
+  "Switch signing over to the new key, and remove the old one after about a week.",
+]
