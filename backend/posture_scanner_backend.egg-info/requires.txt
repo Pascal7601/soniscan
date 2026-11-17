@@ -5,6 +5,8 @@ psycopg[binary]>=3.2
 celery[redis]>=5.4
 dnspython>=2.6
 django-environ>=0.11
+reportlab>=4.2
+django-allauth[mfa,socialaccount]>=65.4
 
 [dev]
 pytest>=8

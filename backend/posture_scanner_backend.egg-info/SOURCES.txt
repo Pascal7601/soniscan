@@ -4,3 +4,5 @@ posture_scanner_backend.egg-info/SOURCES.txt
 posture_scanner_backend.egg-info/dependency_links.txt
 posture_scanner_backend.egg-info/requires.txt
 posture_scanner_backend.egg-info/top_level.txt
+tests/test_docs.py
+tests/test_network_guard.py

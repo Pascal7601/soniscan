@@ -9,6 +9,8 @@ Requires-Dist: psycopg[binary]>=3.2
 Requires-Dist: celery[redis]>=5.4
 Requires-Dist: dnspython>=2.6
 Requires-Dist: django-environ>=0.11
+Requires-Dist: reportlab>=4.2
+Requires-Dist: django-allauth[mfa,socialaccount]>=65.4
 Provides-Extra: dev
 Requires-Dist: pytest>=8; extra == "dev"
 Requires-Dist: pytest-django>=4.9; extra == "dev"

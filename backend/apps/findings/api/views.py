@@ -19,6 +19,7 @@ from .serializers import (
     FindingSerializer,
     FixFirstItemSerializer,
     PostureSerializer,
+    FindingDetailSerializer
 )
 
 _STATUSES = {*Finding.Status.values, "all"}
@@ -129,3 +130,15 @@ class FindingAcceptRiskView(TenantScopedAPIView):
         except services.FindingError as exc:
             raise ValidationError({"detail": [str(exc)]}) from exc
         return Response(FindingSerializer(finding, context={"params": _params()}).data)
+
+
+class FindingDetailView(TenantScopedAPIView):
+    @extend_schema(responses=FindingDetailSerializer)
+    def get(self, request: Request, finding_id: UUID) -> Response:
+        finding = selectors.get_finding(
+            tenant_id=request.tenant_id,  # type: ignore[attr-defined]
+            finding_id=finding_id,
+        )
+        if finding is None:
+            raise NotFound
+        return Response(FindingDetailSerializer(finding, context={"params": _params()}).data)

@@ -1,0 +1,10 @@
+{% extends "account/email/base_message.txt" %}
+{% block content %}{% autoescape off %}Someone (hopefully you) used this address to create a Security Posture Scanner account.
+
+{% if code %}Your email verification code is:
+
+{{ code }}{% else %}Confirm your email address:
+
+{{ activate_url }}{% endif %}
+
+If this wasn't you, ignore this email and no account will be activated.{% endautoescape %}{% endblock content %}

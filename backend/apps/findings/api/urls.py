@@ -5,6 +5,7 @@ from .views import (
     DomainFixFirstView,
     DomainPostureView,
     FindingAcceptRiskView,
+    FindingDetailView
 )
 
 urlpatterns = [
@@ -22,4 +23,5 @@ urlpatterns = [
         FindingAcceptRiskView.as_view(),
         name="finding-accept-risk",
     ),
+    path("findings/<uuid:finding_id>/", FindingDetailView.as_view(), name="finding-detail"),
 ]

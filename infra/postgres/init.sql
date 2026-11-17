@@ -17,3 +17,4 @@ GRANT USAGE ON SCHEMA public TO app_api, scanner_worker;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_api;
 -- scanner_worker gets narrower, per-table grants added by the migrations that create scan tables.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_api;

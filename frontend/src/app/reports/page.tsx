@@ -1,0 +1,18 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { Download, FileText, Plus, RefreshCw } from 'lucide-react';
+import { api } from '@/lib/api/client';
+import { useApp } from '@/components/app-provider';
+import { EmptyState, ErrorNotice, LoadingState, PageHeader, formatDate } from '@/components/ui';
+import type { Report } from '@/lib/api/types';
+export default function ReportsPage(){const {domains,selectedDomain,selectDomain,me}=useApp();const [reports,setReports]=useState<Report[]>([]);const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const canGenerate=me?.memberships.some(m=>m.role==='owner'||m.role==='admin')??false;
+ const load=async()=>{if(!selectedDomain){setReports([]);return;}setLoading(true);setError('');try{setReports(await api.reports(selectedDomain.id));}catch(e){setError(e instanceof Error?e.message:'Could not load reports.')}finally{setLoading(false)}};useEffect(()=>{void load()},[selectedDomain]);
+ const create=async()=>{if(!selectedDomain)return;setBusy(true);setError('');setNotice('');try{await api.createReport(selectedDomain.id);setNotice('Report generated.');await load();}catch(e){setError(e instanceof Error?e.message:'Could not generate report.')}finally{setBusy(false)}};
+ const download=async(id:string)=>{setBusy(true);setError('');try{await api.downloadReport(id)}catch(e){setError(e instanceof Error?e.message:'Could not download PDF.')}finally{setBusy(false)}};
+ return <div className="page-wrap"><PageHeader eyebrow="REPORTING" title="Reports" description="Generate and download security posture reports." action={<button className="button primary" onClick={()=>void create()} disabled={!canGenerate||!selectedDomain||busy}><Plus size={16}/>{busy?'Working…':'Generate report'}</button>}/>
+ {error&&<ErrorNotice message={error}/>}{notice&&<div className="notice success">{notice}</div>}
+ <section className="panel"><div className="panel-heading"><div><h2>Generated reports</h2><p>Reports are based on a completed scan and its finding snapshot.</p></div><div className="filter-row"><select className="header-select" aria-label="Domain" value={selectedDomain?.id??''} onChange={e=>selectDomain(e.target.value)}>{domains.map(d=><option key={d.id} value={d.id}>{d.fqdn}</option>)}</select><button className="button subtle" onClick={()=>void load()}><RefreshCw size={15}/></button></div></div>
+ {!canGenerate&&<div className="notice warning">Only organisation owners and admins can generate reports. You can still download existing reports.</div>}
+ {loading?<LoadingState/>:reports.length?<div className="table-scroll"><table><thead><tr><th>Report</th><th>Generated</th><th>Grade</th><th>Score</th><th>Open findings</th><th>Action</th></tr></thead><tbody>{reports.map(r=><tr key={r.id}><td><div className="domain-cell"><span className="table-icon"><FileText size={16}/></span><strong>Security posture report</strong></div><small className="table-subtitle">{r.id.slice(0,8)}…</small></td><td>{formatDate(r.generated_at)}</td><td><span className="grade-pill">{r.grade}</span></td><td>{r.score}/100</td><td>{r.open_findings}</td><td><button className="button small subtle" disabled={busy} onClick={()=>void download(r.id)}><Download size={14}/> PDF</button></td></tr>)}</tbody></table></div>:<EmptyState title="No reports yet" description="Generate a report after at least one scan has completed successfully or partially." action={canGenerate?<button className="button primary" disabled={busy} onClick={()=>void create()}><Plus size={15}/> Generate report</button>:undefined}/>}</section>
+ </div>;
+}

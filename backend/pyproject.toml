@@ -10,6 +10,8 @@ dependencies = [
   "celery[redis]>=5.4",
   "dnspython>=2.6",
   "django-environ>=0.11",
+  "reportlab>=4.2",
+  "django-allauth[mfa,socialaccount]>=65.4",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +58,7 @@ warn_unused_ignores = true
 exclude = ["migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "environ.*"]
+module = ["celery.*", "environ.*", "allauth.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

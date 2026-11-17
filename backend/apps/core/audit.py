@@ -12,6 +12,8 @@ from django.db import connection
 from django.http import HttpRequest
 from django.utils import timezone
 
+from allauth.account.adapter import get_adapter
+
 _INSERT = """
     INSERT INTO audit_log
       (occurred_at, tenant_id, actor_type, actor_id, action, target_type, target_id,
@@ -51,9 +53,9 @@ def record(
 
 
 def request_meta(request: HttpRequest) -> dict[str, Any]:
-    """ip and user_agent for record(). Behind a reverse proxy, configure the proxy so that
-    REMOTE_ADDR is the real client address; never trust a client-supplied X-Forwarded-For."""
+    """ip and user_agent for record(). The IP honours ALLAUTH_TRUSTED_PROXY_COUNT, so a
+    client-supplied X-Forwarded-For cannot spoof it (checked: spoofed entries are ignored)."""
     return {
-        "ip": request.META.get("REMOTE_ADDR"),
+        "ip": get_adapter().get_client_ip(request),
         "user_agent": request.META.get("HTTP_USER_AGENT", ""),
     }

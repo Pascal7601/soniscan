@@ -22,12 +22,19 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "rest_framework",
     "drf_spectacular",
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
+    "allauth.mfa",
+    "allauth.socialaccount",
     "apps.core",
     "apps.accounts",
     "apps.domains",
     "apps.scans",
     "apps.findings",
+    "apps.reports",
     "apps.runner",
+    
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -40,6 +47,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -48,7 +56,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -97,7 +105,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"user": "120/min", "verification_check": "6/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "120/min",
+        "verification_check": "6/min",
+        "report_generate": "20/hour",
+        "report_download": "60/hour",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -131,3 +144,69 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+# ---- Authentication (docs/adr/0006-authentication.md) ----------------------------------------
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000").rstrip("/")
+# The browser app calls the API through its own origin, so Django must trust that origin for POSTs.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[FRONTEND_URL])
+SIGNUP_OPEN = env.bool("SIGNUP_OPEN", default=True)  # false = invitation-only / private beta
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7
+PASSWORD_RESET_TIMEOUT = 60 * 60  # reset links last one hour
+
+ACCOUNT_ADAPTER = "apps.accounts.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
+ACCOUNT_SIGNUP_FORM_CLASS = "apps.accounts.forms.SignupForm"
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None  # users sign in with their email
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"  # no sign-in before the email address is confirmed
+ACCOUNT_EMAIL_NOTIFICATIONS = True  # "your password / MFA changed" emails
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
+ACCOUNT_REAUTHENTICATION_REQUIRED = True  # sensitive changes ask for the password again
+ACCOUNT_SESSION_REMEMBER = True
+
+# API-only: the browser app owns every screen; links in emails point at it.
+HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ["browser"]
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": f"{FRONTEND_URL}/verify-email/{{key}}",
+    "account_reset_password": f"{FRONTEND_URL}/forgot-password",
+    "account_reset_password_from_key": f"{FRONTEND_URL}/reset-password/{{key}}",
+    "account_signup": f"{FRONTEND_URL}/signup",
+    "socialaccount_login_error": f"{FRONTEND_URL}/login?error=social",
+}
+
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]  # authenticator app + backup codes
+MFA_TOTP_ISSUER = "Security Posture Scanner"
+
+# Social sign-in. A provider is switched on only when both of its variables are set.
+SOCIALACCOUNT_PROVIDERS: dict[str, dict] = {}
+for _provider, _prefix in {"google": "GOOGLE", "microsoft": "MICROSOFT"}.items():
+    _client_id = env(f"{_prefix}_CLIENT_ID", default="")
+    _secret = env(f"{_prefix}_CLIENT_SECRET", default="")
+    if _client_id and _secret:
+        INSTALLED_APPS.append(f"allauth.socialaccount.providers.{_provider}")
+        SOCIALACCOUNT_PROVIDERS[_provider] = {"APPS": [{"client_id": _client_id, "secret": _secret}]}
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = False  # never sign someone into an existing account by email match
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_STORE_TOKENS = False
+
+# Rate limits (login, sign-up, reset) use the cache and the client address, so both must be right.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
+    }
+}
+# How many reverse proxies sit in front of Django (0 = none). Needed so limits apply per person.
+ALLAUTH_TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
+
+EMAIL_CONFIG = env.email_url("EMAIL_URL", default="consolemail://")
+vars().update(EMAIL_CONFIG)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Security Posture Scanner <no-reply@localhost>")

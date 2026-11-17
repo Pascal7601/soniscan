@@ -25,6 +25,29 @@ class FindingSerializer(serializers.ModelSerializer):
     def get_tier(self, obj: Finding) -> str:
         return scoring.tier(float(obj.score), self.context["params"])
 
+class FindingDetailSerializer(FindingSerializer):
+    """A finding with the plain-language text the customer was shown."""
+
+    plain_explanation = serializers.CharField(source="check_definition.plain_explanation")
+    why_it_matters = serializers.CharField(source="check_definition.why_it_matters")
+    fix_steps = serializers.ListField(
+        child=serializers.CharField(), source="check_definition.fix_steps"
+    )
+    effort = serializers.CharField(source="check_definition.effort")
+    owner_hint = serializers.CharField(source="check_definition.owner_hint", allow_blank=True)
+
+    class Meta(FindingSerializer.Meta):
+        fields = [
+            *FindingSerializer.Meta.fields,
+            "plain_explanation",
+            "why_it_matters",
+            "fix_steps",
+            "effort",
+            "owner_hint",
+            "accepted_reason",
+        ]
+        read_only_fields = fields
+
 
 class FixFirstItemSerializer(serializers.Serializer):
     rank = serializers.IntegerField()

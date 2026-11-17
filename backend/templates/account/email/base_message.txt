@@ -1,0 +1,6 @@
+{% autoescape off %}Hello,
+
+{% block content %}{% endblock content %}
+
+Security Posture Scanner
+{% endautoescape %}

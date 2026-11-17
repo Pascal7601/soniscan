@@ -1,13 +1,21 @@
-import type { NextConfig } from "next";
+// next.config.ts
+import type { NextConfig } from 'next';
 
-// The browser only ever talks to this origin. /api/* is proxied to Django, so session cookies
-// stay same-site and no CORS configuration is needed.
-const backend = process.env.BACKEND_URL ?? "http://localhost:8000";
+const backend = process.env.BACKEND_URL ?? 'http://127.0.0.1:8000';
 
-const config: NextConfig = {
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  // Without this Next redirects /x/ to /x before the rewrite runs.
+  skipTrailingSlashRedirect: true,
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
+    return [
+      // allauth's headless endpoints have NO trailing slash.
+      { source: '/api/auth/browser/:path*', destination: `${backend}/api/auth/browser/:path*` },
+      // Everything else on Django ends with a slash (REST views, docs, social callbacks),
+      // and Next drops it when proxying, so put it back.
+      { source: '/api/:path*', destination: `${backend}/api/:path*/` },
+    ];
   },
 };
 
-export default config;
+export default nextConfig;

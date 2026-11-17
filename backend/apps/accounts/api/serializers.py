@@ -17,3 +17,4 @@ class MeSerializer(serializers.Serializer):
     email = serializers.EmailField()
     display_name = serializers.CharField()
     memberships = MembershipSerializer(many=True)
+    mfa_enabled = serializers.BooleanField()

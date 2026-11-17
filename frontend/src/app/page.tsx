@@ -1,10 +1,21 @@
-import Link from "next/link";
-
-export default function Home() {
-  return (
-    <main>
-      <h1>Security Posture Scanner</h1>
-      <p><Link href="/domains">Your domains</Link></p>
-    </main>
-  );
+'use client';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, Globe2, ScanLine, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
+import { api } from '@/lib/api/client';
+import type { FixFirstItem, Posture, Scan } from '@/lib/api/types';
+import { useApp } from '@/components/app-provider';
+import { EmptyState, LoadingState, MetricCard, PageHeader, SeverityBadge, StatusBadge, formatDate } from '@/components/ui';
+export default function OverviewPage() {
+ const { domains, selectedDomain, selectDomain, loading } = useApp(); const [posture,setPosture]=useState<Posture|null>(null); const [fixes,setFixes]=useState<FixFirstItem[]>([]); const [scans,setScans]=useState<Scan[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+ useEffect(()=>{ if(!selectedDomain){setPosture(null);setFixes([]);setScans([]);return;} let live=true; setBusy(true);setError(''); Promise.all([api.posture(selectedDomain.id),api.fixFirst(selectedDomain.id),api.scans(selectedDomain.id)]).then(([p,f,s])=>{if(live){setPosture(p);setFixes(f);setScans(s);}}).catch(e=>{if(live)setError(e instanceof Error?e.message:'Could not load overview.');}).finally(()=>{if(live)setBusy(false);});return()=>{live=false}; },[selectedDomain]);
+ return <div className="page-wrap"><PageHeader eyebrow="SECURITY OVERVIEW" title="Good to see you" description="Here is your organisation’s current external security posture." action={<Link className="button primary" href="/domains"><Globe2 size={16}/> Manage domains</Link>}/>
+ {loading ? <LoadingState/> : !domains.length ? <section className="panel"><EmptyState title="Add your first domain" description="Start by adding a public domain your organisation controls. You’ll verify ownership before running active scans." action={<Link href="/domains" className="button primary">Add a domain</Link>}/></section> : <>
+ {error&&<div className="inline-error">{error}</div>}
+ <div className="domain-toolbar"><div><span className="field-caption">CURRENT DOMAIN</span><select value={selectedDomain?.id??''} onChange={e=>selectDomain(e.target.value)}>{domains.map(d=><option key={d.id} value={d.id}>{d.fqdn}</option>)}</select></div><StatusBadge status={selectedDomain?.status??'pending'}/></div>
+ {busy ? <LoadingState label="Calculating posture…"/> : <div className="metrics-grid"><MetricCard label="Posture score" value={posture?`${posture.score}/100`:'—'} hint={posture?`Grade ${posture.grade}`:'No posture data'} icon={<ShieldCheck size={19}/>}/><MetricCard label="Open findings" value={posture?.open_findings??'—'} hint="Across the selected domain" icon={<ShieldAlert size={19}/>}/><MetricCard label="Domains" value={domains.length} hint="In this organisation" icon={<Globe2 size={19}/>}/><MetricCard label="Scans" value={scans.length} hint="Recorded scan runs" icon={<ScanLine size={19}/>}/></div>}
+ <div className="content-grid"><section className="panel"><div className="panel-heading"><div><h2>Fix this first</h2><p>Prioritised issues that deserve attention.</p></div><Link href="/findings" className="text-link">All findings <ArrowUpRight size={15}/></Link></div>{busy?<LoadingState/>:fixes.length?<div className="fix-list">{fixes.slice(0,4).map(item=><Link className="fix-item" href={`/findings/${item.finding_id}`} key={item.finding_id}><div className="fix-rank">{item.rank}</div><div className="fix-copy"><div className="fix-title-row"><strong>{item.title}</strong><SeverityBadge severity={item.severity}/></div><p>{item.plain_explanation}</p><small>{item.asset} · {item.effort} effort</small></div><ArrowUpRight size={16}/></Link>)}</div>:<EmptyState title="No prioritised fixes" description="Once scans produce findings, the most important fixes will appear here."/>}</section>
+ <section className="panel"><div className="panel-heading"><div><h2>Recent scans</h2><p>Background scan activity.</p></div><Link href="/scans" className="text-link">View scans <ArrowUpRight size={15}/></Link></div>{busy?<LoadingState/>:scans.length?<div className="compact-list">{scans.slice(0,5).map(scan=><div className="compact-row" key={scan.id}><div className="compact-icon"><ScanLine size={16}/></div><div className="compact-copy"><strong>{scan.mode} scan</strong><small>{formatDate(scan.queued_at)}</small></div><StatusBadge status={scan.status}/></div>)}</div>:<EmptyState title="No scans yet" description="Run a passive scan to start checking your domain."/>}</section></div>
+ <div className="info-strip"><Sparkles size={18}/><span>Security posture is based on completed scanner checks. A scan may be partial when some checks cannot complete.</span></div>
+ </> }</div>;
 }
