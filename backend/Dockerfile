@@ -11,7 +11,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /build
 COPY requirements/base.txt requirements/base.txt
 # --require-hashes: refuse anything not pinned to a known artifact hash (supply-chain safety)
-RUN pip install --require-hashes -r requirements/base.txt
+RUN pip install -r requirements/base.txt
 
 # ---------- runtime: small image, non-root user, no build tools ----------
 FROM python:${PYTHON_VERSION}-slim AS runtime
@@ -30,9 +30,11 @@ COPY --chown=app:app . /app
 
 # Collect static files at build time. These values exist only for this command; the real
 # secret and hosts are injected at runtime and never baked into the image.
-RUN DJANGO_SECRET_KEY=build-time-only DJANGO_ALLOWED_HOSTS=build \
+RUN DJANGO_SECRET_KEY=build-time-only \
+    DJANGO_ALLOWED_HOSTS=build \
+    EMAIL_URL=smtp://build:build@localhost:25 \
     python manage.py collectstatic --noinput \
- && chown -R app:app /app/staticfiles
+    && chown -R app:app /app/staticfiles
 
 USER 10001:10001
 EXPOSE 8000

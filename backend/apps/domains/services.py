@@ -65,7 +65,7 @@ def normalise_fqdn(raw: str) -> str:
         raise InvalidDomain("Invalid domain name.") from exc
     if len(value) > 253 or not _FQDN_RE.match(value):
         raise InvalidDomain("Invalid domain name.")
-    if psl.ispublicsuffix(value):
+    if psl.is_public(value):
         raise InvalidDomain("You cannot scan a public suffix. Please provide a specific subdomain.")
     return value
 

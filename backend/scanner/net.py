@@ -22,6 +22,7 @@ import ssl
 import urllib.parse
 from collections.abc import Callable
 from datetime import UTC, datetime
+import dns
 
 from . import __version__
 from .safety import UnsafeTarget, resolve_public
@@ -237,3 +238,12 @@ class StdlibWebClient:
             return None
         finally:
             connection.close()
+
+class StdlibResolver:
+    """DNS resolver implementation satisfying the scanner.types.Resolver protocol."""
+    def txt(self, name: str) -> list[str]:
+        try:
+            answers = dns.resolver.resolve(name, "TXT")
+            return [str(rdata).strip('"') for rdata in answers]
+        except Exception:
+            return []

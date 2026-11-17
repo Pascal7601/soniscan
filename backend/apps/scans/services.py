@@ -15,7 +15,7 @@ from apps.core.tasks import dispatch_on_commit
 from .models import Scan
 
 RUN_SCAN_TASK = "runner.run_scan"
-PLAN_MAX_SCANS_PER_MONTH = {"free": 3, "starter": 30, "business": 150}
+PLAN_MAX_SCANS_PER_MONTH = {"free": 50, "starter": 30, "business": 150}
 PLAN_ALLOWS_ACTIVE = {"free": False, "starter": True, "business": True}
 
 

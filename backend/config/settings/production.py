@@ -15,3 +15,6 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 if EMAIL_BACKEND.endswith("console.EmailBackend"):  # noqa: F405
     raise ImproperlyConfigured("EMAIL_URL must be set in production (sign-up sends email)")
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
